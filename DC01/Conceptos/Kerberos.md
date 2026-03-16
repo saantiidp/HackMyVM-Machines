@@ -87,10 +87,9 @@ SPN | Operador de la atracción |
 # Flujo normal de Kerberos
 
 ### 1️⃣ AS_REQ
+Usuario → KDC
 
 El usuario solicita autenticación.
-
-Usuario → KDC
 
 En el parque:
 
@@ -99,20 +98,18 @@ En el parque:
 ---
 
 ### 2️⃣ AS_REP
+El KDC entrega un **TGT (Ticket Granting Ticket)**.
 
-El KDC verifica la identidad y entrega un **TGT**.
+En el parque equivale a:
 
-El TGT es equivalente a:
-
-> la pulsera del parque.
+**la pulsera del parque**.
 
 ---
 
 ### 3️⃣ TGS_REQ
-
-El usuario quiere acceder a un servicio específico.
-
 Usuario → KDC
+
+El usuario pide un ticket para un servicio específico.
 
 Ejemplo:
 
@@ -121,24 +118,19 @@ Ejemplo:
 ---
 
 ### 4️⃣ TGS_REP
-
-El KDC devuelve un **ticket de servicio**.
-
-Este ticket está cifrado con la **clave del servicio**.
+El KDC entrega el **ticket de servicio**.
 
 ---
 
 ### 5️⃣ AP_REQ
-
-El usuario presenta el ticket al servicio.
-
 Usuario → Servicio (AP)
+
+El usuario presenta el ticket.
 
 ---
 
 ### 6️⃣ AP_REP
-
-El servicio valida el ticket y permite el acceso.
+El servicio valida el ticket.
 
 ---
 
@@ -146,81 +138,50 @@ El servicio valida el ticket y permite el acceso.
 
 La **preauthentication** obliga al usuario a demostrar que conoce su contraseña antes de recibir el TGT.
 
-El cliente envía un:
+El cliente envía:
 
 timestamp cifrado con su clave.
 
 El KDC lo descifra usando el hash almacenado en Active Directory.
 
-Si coincide → autenticación válida.
-
 ---
 
 # Qué es el Timestamp en Kerberos
 
-Un **timestamp** es una marca de tiempo.
+Un timestamp es una **marca de tiempo**.
 
 Ejemplo:
 
 2026-03-16 18:42:15
 
-Se utiliza para evitar **replay attacks** (reutilizar mensajes antiguos).
+Se usa para evitar **replay attacks**.
 
 ---
 
-## Cómo funciona el timestamp
+## Cómo funciona
 
-Durante la preauthentication el cliente envía:
+El cliente envía:
 
 EncryptedTimestamp
-
-Esto significa:
-
-timestamp cifrado con la clave derivada de la contraseña.
 
 Conceptualmente:
 
 Encrypt(timestamp, clave_usuario)
 
----
+El KDC intenta descifrarlo.
 
-## Qué hace el KDC
-
-El KDC intenta descifrar ese valor usando el hash de contraseña almacenado.
-
-Decrypt(EncryptedTimestamp, clave_usuario)
-
-Si el resultado es un timestamp válido:
-
-usuario autenticado.
+Si el timestamp es válido → autenticación correcta.
 
 ---
 
 ## Qué ve un atacante
 
-Un atacante que capture el tráfico solo verá datos cifrados.
-
-Ejemplo:
+Un atacante solo verá datos cifrados:
 
 AS_REQ  
 EncryptedTimestamp = 7A1B23F8...
 
-La contraseña **no aparece en la red**.
-
----
-
-## ¿Se puede obtener la contraseña del timestamp?
-
-No directamente.
-
-El atacante solo puede intentar un **ataque de fuerza bruta offline**.
-
-Proceso:
-
-1. probar contraseña candidata
-2. generar clave
-3. intentar descifrar timestamp
-4. si produce timestamp válido → contraseña correcta
+La contraseña **no viaja por la red**.
 
 ---
 
@@ -232,7 +193,7 @@ Proceso:
 
 ## AS-REP Roasting
 
-Este ataque ocurre cuando un usuario tiene desactivada la preauthentication.
+Ocurre cuando la preauthentication está desactivada.
 
 Configuración vulnerable:
 
@@ -242,46 +203,148 @@ Entonces el KDC devuelve directamente:
 
 AS_REP
 
-Ese ticket está cifrado con la contraseña del usuario.
-
-El atacante puede:
-
-1. solicitar el ticket
-2. capturarlo
-3. crackearlo offline
+El atacante puede capturar ese ticket y crackearlo offline.
 
 ---
 
-## Kerberoasting
+# Kerberoasting explicado en profundidad
 
-Este ataque se dirige a **cuentas de servicio**.
+Aquí está la parte clave que conecta todo.
 
-Cada servicio tiene un **SPN**.
+### Problema que Kerberos debe resolver
+
+Cuando un usuario accede a un servicio:
+
+SMB  
+HTTP  
+MSSQL  
+
+El servicio necesita saber:
+
+> ¿este usuario está autenticado?
+
+Pero el servicio **no conoce la contraseña del usuario**.
+
+Solo el **KDC** conoce las contraseñas.
+
+---
+
+## Qué hace el KDC
+
+Cuando el usuario solicita un ticket de servicio:
+
+TGS_REQ
+
+El KDC crea un **Service Ticket** que contiene:
+
+- usuario
+- grupos
+- privilegios
+- timestamp
+- session key
+
+Pero ese ticket debe ir **cifrado**.
+
+---
+
+## ¿Con qué clave se cifra?
+
+Si el ticket se cifrara con la contraseña del usuario:
+
+el servicio no podría descifrarlo.
+
+Porque el servicio **no conoce la contraseña del usuario**.
+
+---
+
+## Solución del diseño de Kerberos
+
+El ticket se cifra con la **clave del servicio**.
 
 Ejemplo:
 
-HTTP/webserver.domain.local
+HTTP/webserver
 
-Un usuario autenticado puede solicitar un ticket para ese servicio.
+Ese servicio tiene una cuenta en Active Directory.
 
-El ticket estará cifrado con la contraseña del servicio.
+El ticket se cifra con:
 
-El atacante puede:
+clave_servicio
 
-1. solicitar el ticket
-2. guardarlo
-3. crackearlo offline
+Entonces el flujo es:
+
+Usuario → Servicio  
+ticket cifrado con clave_servicio
+
+El servicio puede descifrarlo usando su propia clave.
 
 ---
 
-# Resumen
+## Símil del parque
+
+Cada atracción tiene **su propia llave**.
+
+La taquilla crea el ticket y lo cierra con:
+
+la llave de esa atracción.
+
+Cuando llegas:
+
+el operador usa su llave y abre el ticket.
+
+---
+
+## Aquí aparece Kerberoasting
+
+Si un atacante obtiene el ticket de servicio:
+
+TGS_REP
+
+puede intentar descifrarlo offline.
+
+Proceso:
+
+1. adivinar contraseña
+2. generar clave
+3. intentar descifrar ticket
+4. si funciona → contraseña del servicio
+
+---
+
+## Por qué el ataque funciona
+
+Porque cualquier usuario autenticado puede pedir tickets de servicio.
+
+Entonces el atacante puede:
+
+- pedir muchos tickets
+- guardarlos
+- crackearlos offline
+
+---
+
+## Por qué es peligroso
+
+Las cuentas de servicio suelen tener:
+
+- contraseñas antiguas
+- contraseñas débiles
+- privilegios altos
+
+Si se obtiene la contraseña del servicio:
+
+se puede acceder al servicio o escalar privilegios.
+
+---
+
+# Resumen final
 
 Kerberos funciona como un parque:
 
 1. te autenticas en la taquilla
-2. recibes una pulsera (TGT)
-3. pides tickets de atracción (TGS)
-4. presentas el ticket en la atracción (AP)
+2. recibes pulsera (TGT)
+3. pides ticket de atracción (TGS)
+4. presentas ticket en la atracción (AP)
 
 Ataques principales:
 
@@ -291,4 +354,3 @@ AS-REP Roasting | contraseña de usuario |
 Kerberoasting | contraseña de servicio |
 Golden Ticket | clave KRBTGT |
 Silver Ticket | clave de servicio |
-
