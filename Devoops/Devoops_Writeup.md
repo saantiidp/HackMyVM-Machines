@@ -1,4 +1,4 @@
-# Writeup muy detallado de **Devoops** (HackMyVM)
+# Writeup de **Devoops** (HackMyVM)
 
 > Entorno de práctica controlado. Todo lo que se describe aquí debe usarse únicamente dentro del laboratorio autorizado.
 
