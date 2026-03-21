@@ -1,4 +1,4 @@
-# Writeup extremadamente detallado de **Devoops** (HackMyVM)
+# Writeup de **Devoops** (HackMyVM)
 
 > **Entorno controlado y autorizado.** Todo lo que se describe aquí se ha realizado dentro de un laboratorio de práctica tipo CTF / máquina vulnerable. No debe reproducirse fuera de entornos autorizados.
 
